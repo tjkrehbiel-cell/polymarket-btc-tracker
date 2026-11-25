@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0d10">
+  <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BTC Bets">
+  <meta name="description" content="Live, read-only odds for Polymarket Bitcoin markets.">
+  <title>Polymarket BTC</title>
+  <script>
+    (function () {
+      var path = location.pathname;
+      if (!path.endsWith("/") && path.split("/").pop().indexOf(".") === -1) {
+        location.replace(path + "/" + location.search + location.hash);
+      }
+    })();
+  </script>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app" class="app"></div>
+  <script src="app.js" defer></script>
+</body>
+</html>
