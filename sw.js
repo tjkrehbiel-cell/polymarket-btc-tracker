@@ -1,4 +1,4 @@
-const CACHE = "pm-btc-v4";
+const CACHE = "pm-btc-v5";
 const ASSETS = [
   "./",
   "./index.html",

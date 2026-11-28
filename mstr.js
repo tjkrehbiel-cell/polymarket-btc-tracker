@@ -15,7 +15,7 @@
   const DEF_KEY = "pm-btc-mnav-def";
 
   const MN_MIN = 0.5, MN_MAX = 3.0, MN_STEP = 0.01, MN_GRID_STEP = 0.1;
-  const BTC_STEP = 2500, BTC_SPAN = 20000;
+  const BTC_STEP = 250, BTC_GRID_STEP = 2500, BTC_SPAN = 20000;
   const ITEM = 40, THETA = 24;
 
   const DEFS = {
@@ -96,12 +96,14 @@
   const btcNow = () => S.btcLive ?? (S.snap ? S.snap.btc.price : null);
   const liveMnav = (def = S.def) => (S.snap ? mnavOf(def, quote(), btcAtQuote()) : null);
 
-  function btcAxis() {
-    const mid = Math.round((btcNow() || 60000) / BTC_STEP) * BTC_STEP;
+  function priceAxis(step) {
+    const mid = Math.round((btcNow() || 60000) / step) * step;
     const out = [];
-    for (let v = mid - BTC_SPAN; v <= mid + BTC_SPAN; v += BTC_STEP) if (v > 0) out.push(v);
+    for (let v = mid - BTC_SPAN; v <= mid + BTC_SPAN; v += step) if (v > 0) out.push(v);
     return out;
   }
+  const btcAxis = () => priceAxis(BTC_STEP);
+  const btcGridAxis = () => priceAxis(BTC_GRID_STEP);
   function steppedAxis(min, max, step, decimals) {
     const scale = 10 ** decimals;
     const out = [];
@@ -315,12 +317,12 @@
           <div class="defbar" id="m-defbar"></div>
           <div class="wheels">
             <div class="wcol"><div class="wlab">mNAV</div><div id="w-mn"></div><div class="wcap">0.5x – 3.0x · 0.01 steps</div></div>
-            <div class="wcol"><div class="wlab">BTC price</div><div id="w-btc"></div><div class="wcap">±$20,000 · $2,500 steps</div></div>
+            <div class="wcol"><div class="wlab">BTC price</div><div id="w-btc"></div><div class="wcap">±$20,000 · $250 steps</div></div>
             <div class="wcol wout"><div class="wlab">MSTR (implied)</div><div id="w-out"></div><div class="wcap">calculated</div></div>
           </div>
           <div class="wread" id="m-read"></div>
           <div class="wbtns"><button type="button" class="chip" id="m-reset">Reset to live</button></div>
-          <div class="grid-h"><h3>Price grid</h3><span class="meta">every mNAV × every BTC step</span></div>
+          <div class="grid-h"><h3>Price grid</h3><span class="meta">0.1x rows · $2,500 BTC columns</span></div>
           <div class="heat-wrap" id="m-heat"></div>
           <p class="fine" id="m-formula"></p>
         </section>
@@ -328,7 +330,7 @@
         <p class="fine disclaimer">Estimates only, not investment advice. mNAV here is computed from a delayed MSTR quote, live BTC, and Strategy’s published holdings and claims (dated above). Strategy’s own dashboard may differ. Read-only: no trading, no wallet.</p>
       </main>`;
     wMn = makeWheel(root.querySelector("#w-mn"), "mNAV", (v) => `${v.toFixed(2)}x`, onWheel, { pxPerTick: 14, pageStep: 10, flickK: 0.0035 });
-    wBtc = makeWheel(root.querySelector("#w-btc"), "BTC price", (v) => usd0(v), onWheel);
+    wBtc = makeWheel(root.querySelector("#w-btc"), "BTC price", (v) => usd0(v), onWheel, { pxPerTick: 14, pageStep: 10, flickK: 0.0035 });
     odo = makeOdometer(root.querySelector("#w-out"));
     S.built = true;
   }
@@ -480,7 +482,7 @@
   function paintHeat() {
     const el = root.querySelector("#m-heat");
     if (!el || !S.cfg) return;
-    const mns = mnavGridAxis(), btcs = wBtc.values.length ? wBtc.values : btcAxis();
+    const mns = mnavGridAxis(), btcs = btcGridAxis();
     const q = quote();
     const lm = S.snap ? liveMnav() : null;
     const liveRow = lm != null ? nearestIdx(mns, lm) : -1;
@@ -502,7 +504,7 @@
   function paintHeatSel(scroll) {
     const el = root.querySelector("#m-heat");
     if (!el || !wMn || !wMn.values.length) return;
-    const r = nearestIdx(mnavGridAxis(), wMn.value), c = wBtc.index;
+    const r = nearestIdx(mnavGridAxis(), wMn.value), c = nearestIdx(btcGridAxis(), wBtc.value);
     el.querySelectorAll("td.sel,th.sel").forEach((n) => n.classList.remove("sel"));
     const td = el.querySelector(`td[data-r="${r}"][data-c="${c}"]`);
     if (td) td.classList.add("sel");
@@ -673,8 +675,9 @@
     if (td) {
       S.touched = true;
       const gridM = mnavGridAxis()[Number(td.dataset.r)];
+      const gridB = btcGridAxis()[Number(td.dataset.c)];
       wMn.set(nearestIdx(wMn.values, gridM), true);
-      wBtc.set(Number(td.dataset.c), true);
+      wBtc.set(nearestIdx(wBtc.values, gridB), true);
     }
   });
 })();

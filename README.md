@@ -57,7 +57,7 @@ Short-interval 5- and 15-minute markets are pre-listed in large numbers. The def
 ## v2: odds charts and MSTR mNAV tab
 
 - **Tap any percentage** (Yes/No box or a ladder row) to open a sheet with Polymarket's official embed (`embed.polymarket.com/market?market=<market-slug>&theme=dark&showChart=true`). If the embed stays blank, the **Built-in chart** tab draws Yes odds from `clob.polymarket.com/prices-history` (CORS-open; 1D / 1W / 1M / All). Both have an "Open on Polymarket" link.
-- **MSTR mNAV tab** (bottom nav, or `#mstr`): estimated mNAV with three definitions, a 5-minute feed and sparkline, three rolling wheels (mNAV in 0.01x steps × BTC price -> implied MSTR price, odometer-style), and a price grid in 0.1x mNAV rows for every $2,500 BTC step within $20,000 of the current price.
+- **MSTR mNAV tab** (bottom nav, or `#mstr`): estimated mNAV with three definitions, a 5-minute feed and sparkline, three rolling wheels (mNAV in 0.01x steps × BTC in $250 steps -> implied MSTR price, odometer-style), and a price grid in 0.1x mNAV rows and $2,500 BTC columns within $20,000 of the current price.
 - **Data sources**
   - BTC: Coinbase Exchange `BTC-USD` ticker, live from the browser every 30 s (CORS-open).
   - MSTR: no free CORS-open quote exists, so `.github/workflows/mstr-snapshot.yml` runs `scripts/update-mstr.mjs` about every 5 min (US pre-market to after-hours, weekdays; hourly otherwise) and force-pushes `data/mstr.json` to the `data` branch. The app reads it from `raw.githubusercontent.com` every 60 s. The quote is a delayed Yahoo Finance quote (Nasdaq API as fallback). GitHub cron can run late, so a snapshot may be 5-15 min old.
