@@ -549,7 +549,7 @@
     const sources = [
       () => fetch(`${SNAP_URL}?t=${Math.floor(Date.now() / 60000)}`, { cache: "no-store" }),
       // fallback if raw.githubusercontent briefly 404s after a push (rate-limited, used rarely)
-      () => fetch(`https://api.github.com/repos/${REPO}/contents/data/mstr.json?ref=data`, { headers: { Accept: "application/vnd.github.raw+json" }, cache: "no-store" }),
+      () => fetch(`https://api.github.com/repos/${REPO}/contents/data/mstr.json?ref=data`, { headers: { Accept: "application/vnd.github.raw+json" } }),
     ];
     let lastErr = null;
     for (const get of sources) {
