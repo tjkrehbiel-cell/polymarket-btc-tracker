@@ -546,19 +546,28 @@
   }
 
   async function loadSnap() {
-    try {
-      const res = await fetch(`${SNAP_URL}?t=${Math.floor(Date.now() / 60000)}`, { cache: "no-store" });
-      if (!res.ok) throw new Error(`snapshot ${res.status}`);
-      S.snap = await res.json();
-      S.snapSource = "live"; S.snapErr = null;
-    } catch (err) {
-      if (!S.snap) {
-        try {
-          const r2 = await fetch(SEED_URL, { cache: "no-cache" });
-          S.snap = await r2.json();
-          S.snapSource = "seed"; S.snapErr = null;
-        } catch (e2) { S.snapErr = err.message; }
-      }
+    const sources = [
+      () => fetch(`${SNAP_URL}?t=${Math.floor(Date.now() / 60000)}`, { cache: "no-store" }),
+      // fallback if raw.githubusercontent briefly 404s after a push (rate-limited, used rarely)
+      () => fetch(`https://api.github.com/repos/${REPO}/contents/data/mstr.json?ref=data`, { headers: { Accept: "application/vnd.github.raw+json" }, cache: "no-store" }),
+    ];
+    let lastErr = null;
+    for (const get of sources) {
+      try {
+        const res = await get();
+        if (!res.ok) throw new Error(`snapshot ${res.status}`);
+        const j = await res.json();
+        if (!j || !j.mstr) throw new Error("bad snapshot");
+        S.snap = j; S.snapSource = "live"; S.snapErr = null;
+        return;
+      } catch (err) { lastErr = err; }
+    }
+    if (!S.snap) {
+      try {
+        const r2 = await fetch(SEED_URL, { cache: "no-cache" });
+        S.snap = await r2.json();
+        S.snapSource = "seed"; S.snapErr = null;
+      } catch (e2) { S.snapErr = lastErr ? lastErr.message : "no snapshot"; }
     }
   }
 

@@ -30,16 +30,27 @@ jobs:
           node-version: 20
       - name: Build snapshot
         run: node scripts/update-mstr.mjs out/mstr.json
-      - name: Publish to data branch (single force-pushed commit, no history growth)
+      - name: Publish to data branch (fast-forward commits; history squashed daily)
         run: |
           set -e
           cp out/mstr.json /tmp/mstr.json
           git config user.name "mstr-snapshot[bot]"
           git config user.email "mstr-snapshot@users.noreply.github.com"
-          git checkout --orphan data-tmp
-          git rm -rf --quiet . || true
-          mkdir -p data
-          cp /tmp/mstr.json data/mstr.json
-          git add data/mstr.json
-          git commit -q -m "MSTR snapshot $(date -u +%FT%TZ)"
-          git push -f origin HEAD:data
+          if git ls-remote --exit-code --heads origin data >/dev/null 2>&1 && [ "$(date -u +%H)" != "08" ]; then
+            git fetch --depth=1 origin data
+            git checkout -q -B data FETCH_HEAD
+            mkdir -p data
+            cp /tmp/mstr.json data/mstr.json
+            git add data/mstr.json
+            git commit -q -m "MSTR snapshot $(date -u +%FT%TZ)"
+            git push origin HEAD:data
+          else
+            # first run, or the 08:xx UTC squash: one fresh root commit keeps the branch small
+            git checkout -q --orphan data-tmp
+            git rm -rf --quiet . || true
+            mkdir -p data
+            cp /tmp/mstr.json data/mstr.json
+            git add data/mstr.json
+            git commit -q -m "MSTR snapshot $(date -u +%FT%TZ)"
+            git push -f origin HEAD:data
+          fi
