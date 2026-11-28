@@ -1,0 +1,45 @@
+name: MSTR snapshot
+
+# Writes a small JSON snapshot (delayed MSTR quote + BTC, 5d of 5-minute bars) to the
+# `data` branch. The web app reads it from raw.githubusercontent.com (CORS-open).
+# Read-only public quote endpoints only. No secrets are used.
+
+on:
+  schedule:
+    - cron: "*/5 9-23 * * 1-5"   # every ~5 min across US pre/regular/post hours (UTC)
+    - cron: "17 * * * *"         # hourly otherwise (weekends, overnight)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mstr-snapshot
+  cancel-in-progress: true
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build snapshot
+        run: node scripts/update-mstr.mjs out/mstr.json
+      - name: Publish to data branch (single force-pushed commit, no history growth)
+        run: |
+          set -e
+          cp out/mstr.json /tmp/mstr.json
+          git config user.name "mstr-snapshot[bot]"
+          git config user.email "mstr-snapshot@users.noreply.github.com"
+          git checkout --orphan data-tmp
+          git rm -rf --quiet . || true
+          mkdir -p data
+          cp /tmp/mstr.json data/mstr.json
+          git add data/mstr.json
+          git commit -q -m "MSTR snapshot $(date -u +%FT%TZ)"
+          git push -f origin HEAD:data

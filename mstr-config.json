@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "title": "Strategy (MSTR) mNAV constants",
+  "btcHoldings": 851305,
+  "btcHoldingsAsOf": "2026-11-22",
+  "btcHoldingsSource": "Strategy Form 8-K dated 2026-11-23 (sec.gov) / strategy.com press release 2026-11-23",
+  "usdReserve": 3732000000,
+  "usdCash": 1086000000,
+  "usdAssets": 4818000000,
+  "usdAssetsAsOf": "2026-11-22",
+  "debtNotional": 6714000000,
+  "preferredNotional": 12486000000,
+  "claimsAsOf": "2026-11-20",
+  "claimsNote": "Out-of-the-money notional debt and perpetual preferred (excluding in-the-money STRK), per Strategy's Investor Briefing",
+  "dilutedShares": 433600000,
+  "basicShares": 429600000,
+  "sharesAsOf": "2026-11-20",
+  "sharesNote": "~433.6M fully diluted shares implied by Strategy's Net BTC per share; ~429.6M basic shares implied by market cap and price",
+  "source": "Strategy Investor Briefing as of 2026-11-22 (strategy.com investor relations) and Form 8-K filed 2026-11-23",
+  "sourceUrl": "https://www.sec.gov/Archives/edgar/data/1050446/000119312526470961/mstr-20261123.htm",
+  "briefingUrl": "https://assets.contentstack.io/v3/assets/bltf8d808d9b8cebd37/blt36fbde4f9ee6bd70/6b03193eece9cd39c5eb288b/MSTR_Investor_Briefing_As_of_2026-11-22.pdf",
+  "strategyPublishedMnav": { "value": 0.95, "asOf": "2026-11-20", "mstrPrice": 77.80, "btcPrice": 58400 }
+}
