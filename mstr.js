@@ -14,7 +14,7 @@
   const CB_URL = "https://api.exchange.coinbase.com/products/BTC-USD/ticker";
   const DEF_KEY = "pm-btc-mnav-def";
 
-  const MN_MIN = 0.5, MN_MAX = 3.0, MN_STEP = 0.1;
+  const MN_MIN = 0.5, MN_MAX = 3.0, MN_STEP = 0.01, MN_GRID_STEP = 0.1;
   const BTC_STEP = 2500, BTC_SPAN = 20000;
   const ITEM = 40, THETA = 24;
 
@@ -102,19 +102,26 @@
     for (let v = mid - BTC_SPAN; v <= mid + BTC_SPAN; v += BTC_STEP) if (v > 0) out.push(v);
     return out;
   }
-  function mnavAxis() {
+  function steppedAxis(min, max, step, decimals) {
+    const scale = 10 ** decimals;
     const out = [];
-    for (let i = 0; Math.round((MN_MIN + i * MN_STEP) * 10) <= MN_MAX * 10; i++) out.push(Math.round((MN_MIN + i * MN_STEP) * 10) / 10);
+    for (let i = 0; Math.round((min + i * step) * scale) <= max * scale; i++) out.push(Math.round((min + i * step) * scale) / scale);
     return out;
   }
+  const mnavAxis = () => steppedAxis(MN_MIN, MN_MAX, MN_STEP, 2);
+  const mnavGridAxis = () => steppedAxis(MN_MIN, MN_MAX, MN_GRID_STEP, 1);
+  const snapHundredth = (v) => Math.round(v * 100) / 100;
   const nearestIdx = (arr, v) => arr.reduce((b, x, i) => (Math.abs(x - v) < Math.abs(arr[b] - v) ? i : b), 0);
 
   /* ---------- wheel ---------- */
-  function makeWheel(host, label, fmt, onChange) {
+  function makeWheel(host, label, fmt, onChange, opts = {}) {
     host.innerHTML = `<div class="wheel-vp" tabindex="0" role="slider" aria-orientation="vertical" aria-label="${esc(label)}"><div class="wheel-barrel"></div><div class="wheel-band"></div></div>`;
     const vp = host.firstElementChild;
     const barrel = vp.querySelector(".wheel-barrel");
     const R = (ITEM / 2) / Math.tan((THETA / 2) * Math.PI / 180);
+    const px = opts.pxPerTick || ITEM;
+    const pageStep = opts.pageStep || 5;
+    const flickK = opts.flickK || 0.004;
     let values = [], els = [], pos = 0, lastIdx = -1, raf = 0;
     let drag = null;
 
@@ -173,7 +180,7 @@
       if (!drag) return;
       const dy = e.clientY - drag.startY;
       if (Math.abs(dy) > 4) drag.moved = true;
-      pos = Math.min(Math.max(drag.pos0 - dy / ITEM, -0.35), values.length - 0.65);
+      pos = Math.min(Math.max(drag.pos0 - dy / px, -0.35), values.length - 0.65);
       drag.samples.push([performance.now(), e.clientY]);
       if (drag.samples.length > 8) drag.samples.shift();
       layout();
@@ -191,10 +198,9 @@
       }
       const s = d.samples, a = s[0], b = s[s.length - 1];
       const dt = Math.max(1, b[0] - a[0]);
-      let v = -(b[1] - a[1]) / ITEM / dt; // items per ms (drag up => higher index)
+      let v = -(b[1] - a[1]) / px / dt; // items per ms (drag up => higher index)
       if (performance.now() - b[0] > 120) v = 0;
-      const K = 0.004;
-      const target = Math.round(pos + v / K);
+      const target = Math.round(pos + v / flickK);
       const dist = Math.abs(target - pos);
       animateTo(target, Math.min(1200, 200 + dist * 55), true);
     };
@@ -211,7 +217,7 @@
     }, { passive: false });
     vp.addEventListener("keydown", (e) => {
       const i = Math.round(pos);
-      const map = { ArrowUp: -1, ArrowDown: 1, PageUp: -5, PageDown: 5 };
+      const map = { ArrowUp: -1, ArrowDown: 1, PageUp: -pageStep, PageDown: pageStep };
       if (e.key in map) { e.preventDefault(); animateTo(i + map[e.key], 160, true); }
       else if (e.key === "Home") { e.preventDefault(); animateTo(0, 200, true); }
       else if (e.key === "End") { e.preventDefault(); animateTo(values.length - 1, 200, true); }
@@ -308,7 +314,7 @@
           <div class="section-h" style="margin:0 0 6px"><h2>Price wheels</h2><span class="meta">mNAV × BTC → MSTR</span></div>
           <div class="defbar" id="m-defbar"></div>
           <div class="wheels">
-            <div class="wcol"><div class="wlab">mNAV</div><div id="w-mn"></div><div class="wcap">0.5x – 3.0x</div></div>
+            <div class="wcol"><div class="wlab">mNAV</div><div id="w-mn"></div><div class="wcap">0.5x – 3.0x · 0.01 steps</div></div>
             <div class="wcol"><div class="wlab">BTC price</div><div id="w-btc"></div><div class="wcap">±$20,000 · $2,500 steps</div></div>
             <div class="wcol wout"><div class="wlab">MSTR (implied)</div><div id="w-out"></div><div class="wcap">calculated</div></div>
           </div>
@@ -321,7 +327,7 @@
         <section id="m-poly"></section>
         <p class="fine disclaimer">Estimates only, not investment advice. mNAV here is computed from a delayed MSTR quote, live BTC, and Strategy’s published holdings and claims (dated above). Strategy’s own dashboard may differ. Read-only: no trading, no wallet.</p>
       </main>`;
-    wMn = makeWheel(root.querySelector("#w-mn"), "mNAV", (v) => `${v.toFixed(1)}x`, onWheel);
+    wMn = makeWheel(root.querySelector("#w-mn"), "mNAV", (v) => `${v.toFixed(2)}x`, onWheel, { pxPerTick: 14, pageStep: 10, flickK: 0.0035 });
     wBtc = makeWheel(root.querySelector("#w-btc"), "BTC price", (v) => usd0(v), onWheel);
     odo = makeOdometer(root.querySelector("#w-out"));
     S.built = true;
@@ -460,7 +466,7 @@
     if (!rd) return;
     const vs = q ? (p / q - 1) * 100 : null;
     const lm = S.snap ? liveMnav() : null;
-    rd.innerHTML = `<div><b>${wMn.value.toFixed(1)}x</b> mNAV at <b>${usd0(wBtc.value)}</b> BTC → <b class="g">${usd2(p)}</b> MSTR${vs != null ? ` <span class="${vs >= 0 ? "up" : "down"}">${gridPct(vs)} vs last quote</span>` : ""}</div>
+    rd.innerHTML = `<div><b>${wMn.value.toFixed(2)}x</b> mNAV at <b>${usd0(wBtc.value)}</b> BTC → <b class="g">${usd2(p)}</b> MSTR${vs != null ? ` <span class="${vs >= 0 ? "up" : "down"}">${gridPct(vs)} vs last quote</span>` : ""}</div>
       ${S.snap ? `<div class="fine">Live: ${mx(lm)} at ${usd0(btcAtQuote())} → ${usd2(q)} exact (${esc(DEFS[S.def].short)} definition).</div>` : ""}`;
   }
 
@@ -474,7 +480,7 @@
   function paintHeat() {
     const el = root.querySelector("#m-heat");
     if (!el || !S.cfg) return;
-    const mns = mnavAxis(), btcs = wBtc.values.length ? wBtc.values : btcAxis();
+    const mns = mnavGridAxis(), btcs = wBtc.values.length ? wBtc.values : btcAxis();
     const q = quote();
     const lm = S.snap ? liveMnav() : null;
     const liveRow = lm != null ? nearestIdx(mns, lm) : -1;
@@ -496,7 +502,7 @@
   function paintHeatSel(scroll) {
     const el = root.querySelector("#m-heat");
     if (!el || !wMn || !wMn.values.length) return;
-    const r = wMn.index, c = wBtc.index;
+    const r = nearestIdx(mnavGridAxis(), wMn.value), c = wBtc.index;
     el.querySelectorAll("td.sel,th.sel").forEach((n) => n.classList.remove("sel"));
     const td = el.querySelector(`td[data-r="${r}"][data-c="${c}"]`);
     if (td) td.classList.add("sel");
@@ -511,7 +517,7 @@
     if (!S.cfg || !S.built) return;
     const btcs = btcAxis();
     const mns = mnavAxis();
-    const mnLive = S.snap ? nearestIdx(mns, liveMnav()) : nearestIdx(mns, 1.0);
+    const mnLive = S.snap ? nearestIdx(mns, snapHundredth(liveMnav())) : nearestIdx(mns, 1.0);
     const anchor = btcs[Math.floor(btcs.length / 2)];
     const first = !wMn.values.length;
     if (first || forceLive || (!S.touched && anchor !== S.anchor)) {
@@ -655,7 +661,7 @@
       S.def = d.getAttribute("data-def");
       localStorage.setItem(DEF_KEY, S.def);
       paintPanel(); paintFeed(); paintDefbar(); paintHeat(); paintOut();
-      if (!S.touched && S.snap) wMn.set(nearestIdx(mnavAxis(), liveMnav()), true);
+      if (!S.touched && S.snap) wMn.set(nearestIdx(mnavAxis(), snapHundredth(liveMnav())), true);
       return;
     }
     const r = e.target.closest("#mstr-root [data-range]");
@@ -666,7 +672,8 @@
     const td = e.target.closest("#m-heat td");
     if (td) {
       S.touched = true;
-      wMn.set(Number(td.dataset.r), true);
+      const gridM = mnavGridAxis()[Number(td.dataset.r)];
+      wMn.set(nearestIdx(wMn.values, gridM), true);
       wBtc.set(Number(td.dataset.c), true);
     }
   });
