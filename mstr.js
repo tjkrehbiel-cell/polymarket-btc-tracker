@@ -548,7 +548,9 @@
   async function loadSnap() {
     const sources = [
       () => fetch(`${SNAP_URL}?t=${Math.floor(Date.now() / 60000)}`, { cache: "no-store" }),
-      // fallback if raw.githubusercontent briefly 404s after a push (rate-limited, used rarely)
+      // second CDN for the same file (purged by the Action after every push)
+      () => fetch(`https://cdn.jsdelivr.net/gh/${REPO}@data/data/mstr.json`),
+      // last live fallback (GitHub API, rate-limited, used rarely)
       () => fetch(`https://api.github.com/repos/${REPO}/contents/data/mstr.json?ref=data`, { headers: { Accept: "application/vnd.github.raw+json" } }),
     ];
     let lastErr = null;

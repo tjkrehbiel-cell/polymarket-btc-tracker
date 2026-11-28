@@ -54,3 +54,5 @@ jobs:
             git commit -q -m "MSTR snapshot $(date -u +%FT%TZ)"
             git push -f origin HEAD:data
           fi
+      - name: Purge jsDelivr copy (best effort)
+        run: curl -fsS --max-time 20 "https://purge.jsdelivr.net/gh/${{ github.repository }}@data/data/mstr.json" || true
