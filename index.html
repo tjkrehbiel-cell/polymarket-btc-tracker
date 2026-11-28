@@ -22,10 +22,32 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2">
 </head>
 <body>
-  <div id="app" class="app"></div>
-  <script src="app.js" defer></script>
+  <div id="app" class="app">
+    <div id="markets-root"></div>
+    <div id="mstr-root" hidden></div>
+  </div>
+
+  <nav id="tabs" class="tabs" aria-label="Sections">
+    <button type="button" class="tab active" data-tab="markets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg><span>Markets</span></button>
+    <button type="button" class="tab" data-tab="mstr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.5 2"/></svg><span>MSTR mNAV</span></button>
+  </nav>
+
+  <div id="sheet" class="sheet" hidden>
+    <div class="sheet-backdrop" data-sheet-close></div>
+    <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+      <div class="sheet-grab" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 id="sheet-title"></h2>
+        <button type="button" class="icon-btn" data-sheet-close aria-label="Close">&times;</button>
+      </div>
+      <div class="sheet-body" id="sheet-body"></div>
+    </div>
+  </div>
+
+  <script src="app.js?v=2" defer></script>
+  <script src="mstr.js?v=2" defer></script>
 </body>
 </html>

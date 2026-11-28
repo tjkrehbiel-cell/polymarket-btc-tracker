@@ -1,9 +1,12 @@
-const CACHE = "pm-btc-v1";
+const CACHE = "pm-btc-v2";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./mstr.js",
+  "./mstr-config.json",
+  "./mstr-seed.json",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png",
@@ -40,6 +43,6 @@ self.addEventListener("fetch", (event) => {
         }
         return res;
       })
-      .catch(() => caches.match(req).then((hit) => hit || caches.match("./index.html")))
+      .catch(() => caches.match(req, { ignoreSearch: true }).then((hit) => hit || caches.match("./index.html")))
   );
 });

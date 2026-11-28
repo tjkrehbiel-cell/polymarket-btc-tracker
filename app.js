@@ -189,6 +189,7 @@
         groupItemTitle: m.groupItemTitle || "",
         outcomes: asList(m.outcomes),
         outcomePrices: asList(m.outcomePrices).map(Number),
+        clobTokenIds: asList(m.clobTokenIds),
         volume24hr: Number(m.volume24hr) || 0,
         endDate: m.endDate || ev.endDate,
         active: m.active,
@@ -342,6 +343,7 @@
       : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3.2 14.7 9l6.3.5-4.8 4.2 1.5 6.2L12 16.7 6.3 19.9 7.8 13.7 3 9.5 9.3 9z"/></svg>`,
     refresh: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.2-5.5"/><path d="M20 4v6h-6"/></svg>`,
     search: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>`,
+    chart: `<svg class="chart-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-6 4 4 8-9"/><path d="M15 6h5v5"/></svg>`,
     ext: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M14 5h5v5"/><path d="M20 4 10 14"/><path d="M11 5H6a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2v-5"/></svg>`,
   };
 
@@ -359,13 +361,32 @@
     return `<button class="star" type="button" data-pin='${payload}' aria-pressed="${on}" aria-label="${on ? "Unpin" : "Pin"} market">${ICONS.star(on)}</button>`;
   }
 
-  function renderBinaryOdds(m) {
+  const charts = new Map();
+  function chartKey(ev, m) {
+    if (!ev || !ev.slug || !m || !m.slug) return null;
+    const key = String(m.id);
+    const label = m.groupItemTitle && ev.title && !ev.title.includes(m.groupItemTitle)
+      ? `${ev.title} — ${m.groupItemTitle}` : (m.question || ev.title);
+    charts.set(key, {
+      marketId: key,
+      marketSlug: m.slug,
+      eventSlug: ev.slug,
+      title: label,
+      tokens: m.clobTokenIds || [],
+      outcomes: m.outcomes || [],
+    });
+    return key;
+  }
+
+  function renderBinaryOdds(ev, m) {
     const odds = marketOdds(m);
     if (!odds.length) return "";
     if (odds.length <= 2) {
+      const key = chartKey(ev, m);
       return `<div class="odds-row">${odds.map((o) => {
         const cls = /^yes$/i.test(o.name) ? "yes" : (/^no$/i.test(o.name) ? "no" : "yes");
-        return `<div class="odd ${cls}"><span class="lab">${esc(o.name)}</span><span class="val">${fmtPct(o.pct)}</span></div>`;
+        if (!key) return `<div class="odd ${cls}"><span class="lab">${esc(o.name)}</span><span class="val">${fmtPct(o.pct)}</span></div>`;
+        return `<button type="button" class="odd ${cls}" data-chart="${esc(key)}" aria-label="Show odds chart: ${esc(o.name)} ${fmtPct(o.pct)}"><span class="lab">${esc(o.name)}</span><span class="val">${fmtPct(o.pct)}</span>${ICONS.chart}</button>`;
       }).join("")}</div>`;
     }
     return renderStrikes({ markets: odds.map((o, i) => ({ ...m, id: `${m.id}-${i}`, question: o.name, groupItemTitle: o.name, outcomes: [o.name], outcomePrices: [o.pct != null ? o.pct / 100 : null] })) }, false);
@@ -387,11 +408,15 @@
     const rows = shown.map((m) => {
       const yp = yesPct(m);
       const label = m.groupItemTitle || m.question || "Yes";
+      const ckey = allowPin ? chartKey(ev, m) : null;
+      const pctEl = ckey
+        ? `<button type="button" class="ypct" data-chart="${esc(ckey)}" aria-label="Show odds chart for ${esc(label)}">${fmtPct(yp)}${ICONS.chart}</button>`
+        : `<div class="ypct">${fmtPct(yp)}</div>`;
       return `<div class="strike">
         <div class="q" title="${esc(m.question || label)}">${esc(label)}</div>
         <div class="bar" aria-hidden="true"><span style="width:${Math.max(0, Math.min(100, yp || 0))}%"></span></div>
         <div style="display:flex;align-items:center;gap:2px">
-          <div class="ypct">${fmtPct(yp)}</div>
+          ${pctEl}
           ${allowPin ? starBtn(ev, m) : ""}
         </div>
       </div>`;
@@ -419,7 +444,7 @@
         ${starTarget ? starBtn(ev, starTarget) : ""}
         <a class="open-link" href="${esc(link)}" target="_blank" rel="noopener" aria-label="Open on Polymarket">${ICONS.ext}</a>
       </div>
-      ${single ? renderBinaryOdds(m0) : renderStrikes(ev, true)}
+      ${single ? renderBinaryOdds(ev, m0) : renderStrikes(ev, true)}
     </article>`;
   }
 
@@ -443,7 +468,7 @@
         ${starBtn(ev, m)}
         <a class="open-link" href="${esc(link)}" target="_blank" rel="noopener" aria-label="Open on Polymarket">${ICONS.ext}</a>
       </div>
-      ${renderBinaryOdds(m)}
+      ${renderBinaryOdds(ev, rec.missing ? { ...m, slug: null } : m)}
     </article>`;
   }
 
@@ -537,7 +562,7 @@
     }
 
     document.body.classList.remove("widget");
-    document.getElementById("app").innerHTML = `
+    document.getElementById("markets-root").innerHTML = `
       <div class="ptr" id="ptr">Release to refresh</div>
       <header class="header">
         <div class="header-row">
@@ -629,7 +654,7 @@
         }).join("")
       : `<div class="widget-empty">No pinned markets yet. Open the <a href="./">full tracker</a>, star the bets you care about, then come back here. Pins are saved on this device.</div>`;
 
-    document.getElementById("app").innerHTML = `
+    document.getElementById("markets-root").innerHTML = `
       <div class="widget-wrap">
         <div class="hdr"><span>Pinned BTC</span><span>${state.refreshing ? "Updating…" : (state.updatedAt ? fmtClock(state.updatedAt) : "")}</span></div>
         ${state.error ? `<div class="status error">${esc(state.error)}</div>` : ""}
@@ -641,6 +666,7 @@
   function render() {
     if (isWidget) renderWidget();
     else renderMain();
+    window.dispatchEvent(new Event("pm-render"));
   }
 
   document.addEventListener("click", (e) => {
@@ -665,6 +691,15 @@
       render();
       return;
     }
+    const chartBtn = e.target.closest("[data-chart]");
+    if (chartBtn) { openChart(charts.get(chartBtn.getAttribute("data-chart"))); return; }
+    if (e.target.closest("[data-sheet-close]")) { closeSheet(); return; }
+    const tabBtn = e.target.closest("[data-tab]");
+    if (tabBtn) { setTab(tabBtn.getAttribute("data-tab")); return; }
+    const sheetMode = e.target.closest("[data-sheet-mode]");
+    if (sheetMode) { sheet.mode = sheetMode.getAttribute("data-sheet-mode"); paintSheet(); return; }
+    const sheetIv = e.target.closest("[data-sheet-iv]");
+    if (sheetIv) { sheet.iv = sheetIv.getAttribute("data-sheet-iv"); paintSheet(); return; }
     const allShort = e.target.closest("[data-all-short]");
     if (allShort) { state.showAllShort = !state.showAllShort; render(); return; }
     const star = e.target.closest("[data-pin]");
@@ -697,6 +732,163 @@
     }, { passive: true });
   }
 
+  /* ---------- Odds chart sheet ---------- */
+  const sheet = { cur: null, mode: "embed", iv: "1w", seq: 0 };
+  const IVS = [["1d", "1D", 15], ["1w", "1W", 60], ["1m", "1M", 240], ["max", "All", 720]];
+
+  function embedUrl(slug) {
+    const q = new URLSearchParams({ market: slug, features: "volume", theme: "dark", showChart: "true", showVolume: "true", showBorder: "false" });
+    return `https://embed.polymarket.com/market?${q}`;
+  }
+
+  function openChart(info) {
+    if (!info) return;
+    sheet.cur = info;
+    sheet.mode = "embed";
+    sheet.seq++;
+    const el = document.getElementById("sheet");
+    el.hidden = false;
+    document.body.classList.add("sheet-open");
+    paintSheet();
+  }
+  function closeSheet() {
+    const el = document.getElementById("sheet");
+    if (el.hidden) return;
+    el.hidden = true;
+    document.body.classList.remove("sheet-open");
+    document.getElementById("sheet-body").innerHTML = "";
+    sheet.cur = null;
+    sheet.seq++;
+  }
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheet(); });
+
+  function paintSheet() {
+    const c = sheet.cur;
+    if (!c) return;
+    document.getElementById("sheet-title").textContent = c.title;
+    const link = EVENT_URL(c.eventSlug);
+    const seg = `<div class="seg" role="tablist">
+      <button type="button" class="${sheet.mode === "embed" ? "on" : ""}" data-sheet-mode="embed">Polymarket chart</button>
+      <button type="button" class="${sheet.mode === "own" ? "on" : ""}" data-sheet-mode="own">Built-in chart</button>
+    </div>`;
+    let body;
+    if (sheet.mode === "embed") {
+      body = `<div class="embed-wrap"><iframe title="Polymarket odds chart" src="${esc(embedUrl(c.marketSlug))}" loading="eager" referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+        <p class="sheet-note">Official Polymarket embed. If it stays blank, switch to the built-in chart.</p>`;
+    } else {
+      body = `<div class="ivs">${IVS.map(([id, lab]) => `<button type="button" class="chip ${sheet.iv === id ? "active" : ""}" data-sheet-iv="${id}">${lab}</button>`).join("")}</div>
+        <div class="own-chart" id="own-chart"><div class="empty">Loading chart…</div></div>`;
+    }
+    document.getElementById("sheet-body").innerHTML = `${seg}${body}
+      <a class="primary-link" href="${esc(link)}" target="_blank" rel="noopener">Open on Polymarket ↗</a>`;
+    if (sheet.mode === "own") loadOwnChart(sheet.seq);
+  }
+
+  async function yesTokenFor(c) {
+    const yi = Math.max(0, (c.outcomes || []).findIndex((o) => /^yes$/i.test(o)));
+    if (c.tokens && c.tokens[yi]) return c.tokens[yi];
+    const res = await fetch(`https://gamma-api.polymarket.com/markets?slug=${encodeURIComponent(c.marketSlug)}`);
+    const d = await res.json();
+    const ids = asList(d[0] && d[0].clobTokenIds);
+    return ids[0];
+  }
+
+  async function loadOwnChart(seq) {
+    const box = () => document.getElementById("own-chart");
+    const c = sheet.cur;
+    try {
+      const token = await yesTokenFor(c);
+      if (!token) throw new Error("No price history for this market");
+      const iv = IVS.find((x) => x[0] === sheet.iv) || IVS[1];
+      const url = `https://clob.polymarket.com/prices-history?market=${encodeURIComponent(token)}&interval=${iv[0]}&fidelity=${iv[2]}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`History ${res.status}`);
+      const data = await res.json();
+      if (seq !== sheet.seq || !box()) return;
+      const pts = (data.history || []).map((h) => ({ t: h.t * 1000, p: h.p * 100 }));
+      if (pts.length < 2) { box().innerHTML = `<div class="empty">Not enough history yet for this market.</div>`; return; }
+      box().innerHTML = drawChart(pts);
+      wireScrub(box(), pts);
+    } catch (err) {
+      if (seq !== sheet.seq || !box()) return;
+      box().innerHTML = `<div class="empty">Couldn’t load chart (${esc(err.message)}).</div>`;
+    }
+  }
+
+  function drawChart(pts) {
+    const W = 340, H = 210, L = 34, R = 8, T = 10, B = 22;
+    const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+    const ps = pts.map((p) => p.p);
+    let lo = Math.min(...ps), hi = Math.max(...ps);
+    const pad = Math.max(1, (hi - lo) * 0.12);
+    lo = Math.max(0, lo - pad); hi = Math.min(100, hi + pad);
+    if (hi - lo < 4) { hi = Math.min(100, lo + 4); }
+    const x = (t) => L + ((t - t0) / (t1 - t0 || 1)) * (W - L - R);
+    const y = (p) => T + (1 - (p - lo) / (hi - lo)) * (H - T - B);
+    const d = pts.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.p).toFixed(1)}`).join("");
+    const area = `${d}L${x(t1).toFixed(1)},${H - B}L${x(t0).toFixed(1)},${H - B}Z`;
+    const ticks = [0, 0.5, 1].map((f) => lo + (hi - lo) * f);
+    const grid = ticks.map((v) => `<line x1="${L}" x2="${W - R}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}" class="g"/><text x="${L - 4}" y="${(y(v) + 3).toFixed(1)}" class="ax" text-anchor="end">${Math.round(v)}%</text>`).join("");
+    const fmt = (ms) => new Date(ms).toLocaleDateString("en-US", { timeZone: TZ, month: "short", day: "numeric" });
+    const last = pts[pts.length - 1];
+    return `<svg viewBox="0 0 ${W} ${H}" class="lc" role="img" aria-label="Yes odds over time, now ${fmtPct(last.p)}">
+      ${grid}
+      <path d="${area}" class="area"/><path d="${d}" class="line"/>
+      <circle cx="${x(last.t).toFixed(1)}" cy="${y(last.p).toFixed(1)}" r="3.5" class="dot"/>
+      <line class="cross" x1="0" x2="0" y1="${T}" y2="${H - B}" style="display:none"/>
+      <circle class="cdot" r="4" style="display:none"/>
+      <text x="${L}" y="${H - 6}" class="ax">${fmt(t0)}</text><text x="${W - R}" y="${H - 6}" class="ax" text-anchor="end">${fmt(t1)}</text>
+    </svg>
+    <div class="scrub" id="scrub">Yes <b>${fmtPct(last.p)}</b> · latest · drag across the chart to read past odds</div>`;
+  }
+
+  function wireScrub(root, pts) {
+    const svg = root.querySelector("svg");
+    const out = root.querySelector("#scrub");
+    if (!svg) return;
+    const cross = svg.querySelector(".cross"), cdot = svg.querySelector(".cdot");
+    const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+    const L = 34, R = 8, W = 340, H = 210, T = 10, B = 22;
+    const ps = pts.map((p) => p.p);
+    let lo = Math.min(...ps), hi = Math.max(...ps);
+    const pad = Math.max(1, (hi - lo) * 0.12);
+    lo = Math.max(0, lo - pad); hi = Math.min(100, hi + pad);
+    if (hi - lo < 4) hi = Math.min(100, lo + 4);
+    const move = (ev) => {
+      const r = svg.getBoundingClientRect();
+      const px = ((ev.clientX - r.left) / r.width) * W;
+      const t = t0 + ((px - L) / (W - L - R)) * (t1 - t0);
+      let best = pts[0];
+      for (const p of pts) if (Math.abs(p.t - t) < Math.abs(best.t - t)) best = p;
+      const cx = L + ((best.t - t0) / (t1 - t0 || 1)) * (W - L - R);
+      const cy = T + (1 - (best.p - lo) / (hi - lo)) * (H - T - B);
+      cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.style.display = "";
+      cdot.setAttribute("cx", cx); cdot.setAttribute("cy", cy); cdot.style.display = "";
+      out.innerHTML = `Yes <b>${fmtPct(best.p)}</b> · ${new Date(best.t).toLocaleString("en-US", { timeZone: TZ, month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })} CT`;
+    };
+    svg.style.touchAction = "none";
+    svg.addEventListener("pointerdown", move);
+    svg.addEventListener("pointermove", (e) => { if (e.buttons || e.pointerType === "touch") move(e); });
+  }
+
+  /* ---------- Tabs ---------- */
+  function setTab(tab) {
+    if (isWidget) return;
+    if (tab !== "mstr") tab = "markets";
+    document.getElementById("markets-root").hidden = tab !== "markets";
+    document.getElementById("mstr-root").hidden = tab !== "mstr";
+    document.querySelectorAll("#tabs [data-tab]").forEach((b) => b.classList.toggle("active", b.getAttribute("data-tab") === tab));
+    try { localStorage.setItem("pm-btc-tab", tab); } catch { /* ignore */ }
+    history.replaceState(null, "", tab === "mstr" ? "#mstr" : location.pathname + location.search);
+    window.scrollTo(0, 0);
+    window.dispatchEvent(new CustomEvent("pm-tab", { detail: tab }));
+  }
+
+  window.PMApp = {
+    esc, fmtPct, fmtVol, fmtEnd, fmtClock, TZ, ICONS, isWidget,
+    slimEvent, classify, renderEventCard, openChart, chartKey, setTab,
+  };
+
   if ("serviceWorker" in navigator && !isWidget) {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
   }
@@ -712,7 +904,17 @@
     state.stale = true;
     state.loading = false;
   }
+  if (isWidget) {
+    document.getElementById("tabs").hidden = true;
+    document.getElementById("mstr-root").hidden = true;
+  } else {
+    const want = location.hash === "#mstr" || params.get("tab") === "mstr" ? "mstr" : "markets";
+    document.getElementById("markets-root").hidden = want !== "markets";
+    document.getElementById("mstr-root").hidden = want !== "mstr";
+    document.querySelectorAll("#tabs [data-tab]").forEach((b) => b.classList.toggle("active", b.getAttribute("data-tab") === want));
+  }
   render();
+  window.dispatchEvent(new CustomEvent("pm-tab", { detail: (!isWidget && (location.hash === "#mstr" || params.get("tab") === "mstr")) ? "mstr" : "markets" }));
   refresh({ quiet: !!snap });
   setInterval(() => {
     if (document.visibilityState === "hidden") return;
